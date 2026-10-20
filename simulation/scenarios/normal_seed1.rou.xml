@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <!-- Vehicle Type Definition -->
+    <vType id="passenger" accel="2.6" decel="4.5" sigma="0.5" length="5.0" minGap="2.5" maxSpeed="13.89" guiShape="passenger"/>
+    <!-- Route Definitions -->
+    <route id="r_N_S" edges="N_to_J0 J0_to_S"/>
+    <route id="r_N_E" edges="N_to_J0 J0_to_E"/>
+    <route id="r_N_W" edges="N_to_J0 J0_to_W"/>
+    <route id="r_S_N" edges="S_to_J0 J0_to_N"/>
+    <route id="r_S_W" edges="S_to_J0 J0_to_W"/>
+    <route id="r_S_E" edges="S_to_J0 J0_to_E"/>
+    <route id="r_E_W" edges="E_to_J0 J0_to_W"/>
+    <route id="r_E_S" edges="E_to_J0 J0_to_S"/>
+    <route id="r_E_N" edges="E_to_J0 J0_to_N"/>
+    <route id="r_W_E" edges="W_to_J0 J0_to_E"/>
+    <route id="r_W_N" edges="W_to_J0 J0_to_N"/>
+    <route id="r_W_S" edges="W_to_J0 J0_to_S"/>
+    <!-- Vehicle Flows / Trips -->
+    <vehicle id="veh_S_0" type="passenger" route="r_S_E" depart="2.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_1" type="passenger" route="r_N_S" depart="3.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_2" type="passenger" route="r_S_N" depart="4.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_3" type="passenger" route="r_W_E" depart="5.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_4" type="passenger" route="r_W_S" depart="7.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_5" type="passenger" route="r_W_E" depart="12.00" departLane="best" departSpeed="max"/>
+</routes>
