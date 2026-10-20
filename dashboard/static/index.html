@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traffic Chaos Simulator — AI Traffic Control Platform</title>
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js for high-framerate dynamic telemetry -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="top-nav">
+    <div class="brand">
+      <div class="logo-pulse">
+        <span class="pulse-ring"></span>
+        <span class="logo-icon">🚦</span>
+      </div>
+      <div>
+        <h1 class="brand-title">Traffic Chaos Simulator</h1>
+        <p class="brand-sub">Adaptive AI Signal Control & Microscopic SUMO Radar</p>
+      </div>
+    </div>
+
+    <div class="header-status">
+      <div class="status-chip" id="system-status">
+        <span class="status-dot"></span>
+        <span id="status-label">SIMULATOR READY</span>
+      </div>
+      <div class="sim-timer-box">
+        <span class="timer-label">SIM TIME</span>
+        <span class="timer-val" id="hud-timer">00:00 / 02:00</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-grid">
+    <!-- LEFT PANEL: Controls & Live 2D Intersection Radar -->
+    <section class="panel-left">
+      <!-- Control Deck -->
+      <div class="card glass-card control-card">
+        <div class="card-header">
+          <span class="header-tag">MISSION CONTROL</span>
+          <h2 class="card-title">Controller & Scenario Configuration</h2>
+        </div>
+
+        <!-- Controller Selector -->
+        <div class="form-group">
+          <label class="form-label">Signal Controller Policy</label>
+          <div class="controller-grid">
+            <button type="button" class="ctrl-btn active" data-controller="adaptive" id="btn-adaptive">
+              <div class="ctrl-icon">⚡</div>
+              <div class="ctrl-text">
+                <span class="ctrl-name">Adaptive Control</span>
+                <span class="ctrl-desc">Dynamic queue pressure & anti-starvation</span>
+              </div>
+            </button>
+            <button type="button" class="ctrl-btn" data-controller="rl" id="btn-rl">
+              <div class="ctrl-icon">🧠</div>
+              <div class="ctrl-text">
+                <span class="ctrl-name">Reinforcement Learning</span>
+                <span class="ctrl-desc">Deep PPO agent neural policy</span>
+              </div>
+            </button>
+            <button type="button" class="ctrl-btn" data-controller="fixed" id="btn-fixed">
+              <div class="ctrl-icon">⏱️</div>
+              <div class="ctrl-text">
+                <span class="ctrl-name">Fixed-Time Baseline</span>
+                <span class="ctrl-desc">Deterministic 35s cyclic schedule</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scenario Pills -->
+        <div class="form-group">
+          <label class="form-label">Traffic Scenario</label>
+          <div class="scenario-pills" id="scenario-pills">
+            <button class="pill active" data-scenario="normal">Normal</button>
+            <button class="pill" data-scenario="rush_hour">Rush Hour</button>
+            <button class="pill" data-scenario="unbalanced">Unbalanced</button>
+            <button class="pill" data-scenario="surge">Surge Burst</button>
+            <button class="pill" data-scenario="low">Low Traffic</button>
+            <button class="pill" data-scenario="unseen_evaluation">Unseen Eval</button>
+          </div>
+        </div>
+
+        <!-- Sliders & Options Row -->
+        <div class="control-row">
+          <div class="param-box">
+            <label class="form-label">Duration: <span id="val-duration" class="hl-val">120s</span></label>
+            <input type="range" id="input-duration" min="30" max="600" value="120" step="30" class="custom-slider">
+          </div>
+          <div class="param-box">
+            <label class="form-label">Random Seed: <span id="val-seed" class="hl-val">42</span></label>
+            <input type="range" id="input-seed" min="1" max="999" value="42" step="1" class="custom-slider">
+          </div>
+          <div class="param-box">
+            <label class="form-label">Speed Multiplier: <span id="val-speed" class="hl-val">1x</span></label>
+            <input type="range" id="input-speed" min="0.2" max="2.0" value="1.0" step="0.2" class="custom-slider">
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="action-buttons">
+          <button id="btn-start" class="btn btn-primary">
+            <span class="btn-icon">▶</span> START SIMULATION
+          </button>
+          <button id="btn-stop" class="btn btn-danger" disabled>
+            <span class="btn-icon">⏹</span> ABORT
+          </button>
+          <button id="btn-benchmark" class="btn btn-secondary">
+            <span class="btn-icon">⚡</span> 3-WAY BENCHMARK
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Intersection Viewport Canvas -->
+      <div class="card glass-card radar-card">
+        <div class="radar-header">
+          <div>
+            <span class="header-tag">MICRO-RADAR</span>
+            <h3 class="radar-title">Real-Time Intersection Telemetry</h3>
+          </div>
+          <div class="signal-hud">
+            <div class="light-indicator" id="hud-light-ns">
+              <span class="dir-tag">NORTH - SOUTH</span>
+              <div class="traffic-light-pill">
+                <span class="light red"></span>
+                <span class="light yellow"></span>
+                <span class="light green active"></span>
+              </div>
+            </div>
+            <div class="light-indicator" id="hud-light-ew">
+              <span class="dir-tag">EAST - WEST</span>
+              <div class="traffic-light-pill">
+                <span class="light red active"></span>
+                <span class="light yellow"></span>
+                <span class="light green"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="traffic-canvas" width="600" height="520"></canvas>
+          <div class="canvas-overlay" id="canvas-overlay">
+            <div class="overlay-msg">Click <strong>Start Simulation</strong> to launch microscopic vehicle tracking</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: KPI Metrics, Live Streaming Charts, & Fairness Matrix -->
+    <section class="panel-right">
+      <!-- 4 Top KPI Stat Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card" id="kpi-wait">
+          <span class="kpi-label">AVG WAITING TIME</span>
+          <div class="kpi-value-row">
+            <span class="kpi-num" id="kpi-val-wait">0.00</span>
+            <span class="kpi-unit">s</span>
+          </div>
+          <div class="kpi-badge good" id="kpi-badge-wait">Normal Flow</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-queue">
+          <span class="kpi-label">TOTAL QUEUE</span>
+          <div class="kpi-value-row">
+            <span class="kpi-num" id="kpi-val-queue">0</span>
+            <span class="kpi-unit">veh</span>
+          </div>
+          <div class="kpi-badge good" id="kpi-badge-queue">Clear Corridors</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-throughput">
+          <span class="kpi-label">THROUGHPUT</span>
+          <div class="kpi-value-row">
+            <span class="kpi-num" id="kpi-val-tp">0.0</span>
+            <span class="kpi-unit">/min</span>
+          </div>
+          <div class="kpi-badge neutral">Completed Trips</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-active">
+          <span class="kpi-label">ACTIVE VEHICLES</span>
+          <div class="kpi-value-row">
+            <span class="kpi-num" id="kpi-val-active">0</span>
+            <span class="kpi-unit">on net</span>
+          </div>
+          <div class="kpi-badge neutral" id="kpi-badge-maxwait">Max Wait: 0s</div>
+        </div>
+      </div>
+
+      <!-- Real-time Chart.js Graph -->
+      <div class="card glass-card chart-card">
+        <div class="card-header">
+          <span class="header-tag">LIVE DYNAMICS</span>
+          <h3 class="card-title">Intersection Queue & Delay Progression</h3>
+        </div>
+        <div class="chart-container">
+          <canvas id="live-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Directional Approach Matrix -->
+      <div class="card glass-card approach-card">
+        <div class="card-header">
+          <span class="header-tag">APPROACH FAIRNESS</span>
+          <h3 class="card-title">Directional Approach Status</h3>
+        </div>
+        <div class="approaches-grid">
+          <div class="approach-box" id="app-n">
+            <div class="app-top">
+              <span class="app-title">NORTH APPROACH</span>
+              <span class="app-val" id="app-val-n">0 veh</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="prog-n" style="width: 0%"></div></div>
+            <span class="app-sub" id="sub-n">Wait: 0.0s</span>
+          </div>
+
+          <div class="approach-box" id="app-s">
+            <div class="app-top">
+              <span class="app-title">SOUTH APPROACH</span>
+              <span class="app-val" id="app-val-s">0 veh</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="prog-s" style="width: 0%"></div></div>
+            <span class="app-sub" id="sub-s">Wait: 0.0s</span>
+          </div>
+
+          <div class="approach-box" id="app-e">
+            <div class="app-top">
+              <span class="app-title">EAST APPROACH</span>
+              <span class="app-val" id="app-val-e">0 veh</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="prog-e" style="width: 0%"></div></div>
+            <span class="app-sub" id="sub-e">Wait: 0.0s</span>
+          </div>
+
+          <div class="approach-box" id="app-w">
+            <div class="app-top">
+              <span class="app-title">WEST APPROACH</span>
+              <span class="app-val" id="app-val-w">0 veh</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="prog-w" style="width: 0%"></div></div>
+            <span class="app-sub" id="sub-w">Wait: 0.0s</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Benchmark Modal Overlay -->
+  <div class="modal-overlay" id="benchmark-modal">
+    <div class="modal-box glass-card">
+      <div class="modal-header">
+        <div>
+          <span class="header-tag">HEAD-TO-HEAD BENCHMARK</span>
+          <h2 class="modal-title">Multi-Controller Performance Arena</h2>
+        </div>
+        <button class="btn-close" id="btn-close-modal">✕</button>
+      </div>
+
+      <div class="modal-body" id="benchmark-modal-body">
+        <div class="benchmark-loading" id="benchmark-loading">
+          <div class="spinner"></div>
+          <p>Running Fixed-Time, Adaptive, and RL controllers on equivalent demand...</p>
+        </div>
+        <div class="benchmark-content hidden" id="benchmark-content">
+          <table class="benchmark-table" id="benchmark-table">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Controller</th>
+                <th>Avg Wait</th>
+                <th>Avg Queue</th>
+                <th>Throughput</th>
+                <th>Max Wait</th>
+                <th>Completed</th>
+              </tr>
+            </thead>
+            <tbody id="benchmark-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

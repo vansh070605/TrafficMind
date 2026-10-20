@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <!-- Vehicle Type Definition -->
+    <vType id="passenger" accel="2.6" decel="4.5" sigma="0.5" length="5.0" minGap="2.5" maxSpeed="13.89" guiShape="passenger"/>
+    <!-- Route Definitions -->
+    <route id="r_N_S" edges="N_to_J0 J0_to_S"/>
+    <route id="r_N_E" edges="N_to_J0 J0_to_E"/>
+    <route id="r_N_W" edges="N_to_J0 J0_to_W"/>
+    <route id="r_S_N" edges="S_to_J0 J0_to_N"/>
+    <route id="r_S_W" edges="S_to_J0 J0_to_W"/>
+    <route id="r_S_E" edges="S_to_J0 J0_to_E"/>
+    <route id="r_E_W" edges="E_to_J0 J0_to_W"/>
+    <route id="r_E_S" edges="E_to_J0 J0_to_S"/>
+    <route id="r_E_N" edges="E_to_J0 J0_to_N"/>
+    <route id="r_W_E" edges="W_to_J0 J0_to_E"/>
+    <route id="r_W_N" edges="W_to_J0 J0_to_N"/>
+    <route id="r_W_S" edges="W_to_J0 J0_to_S"/>
+    <!-- Vehicle Flows / Trips -->
+    <vehicle id="veh_S_0" type="passenger" route="r_S_N" depart="0.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_1" type="passenger" route="r_E_W" depart="1.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_2" type="passenger" route="r_W_E" depart="1.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_3" type="passenger" route="r_S_N" depart="2.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_4" type="passenger" route="r_W_S" depart="3.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_5" type="passenger" route="r_S_N" depart="5.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_6" type="passenger" route="r_W_E" depart="8.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_7" type="passenger" route="r_S_N" depart="9.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_8" type="passenger" route="r_E_W" depart="9.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_9" type="passenger" route="r_E_W" depart="14.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_10" type="passenger" route="r_E_W" depart="19.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_11" type="passenger" route="r_W_N" depart="19.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_12" type="passenger" route="r_E_W" depart="20.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_13" type="passenger" route="r_W_N" depart="21.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_14" type="passenger" route="r_N_S" depart="23.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_15" type="passenger" route="r_S_N" depart="27.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_16" type="passenger" route="r_E_N" depart="27.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_17" type="passenger" route="r_E_N" depart="28.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_18" type="passenger" route="r_N_S" depart="29.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_19" type="passenger" route="r_S_W" depart="29.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_20" type="passenger" route="r_W_E" depart="29.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_21" type="passenger" route="r_S_N" depart="33.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_22" type="passenger" route="r_E_S" depart="34.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_23" type="passenger" route="r_E_W" depart="35.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_24" type="passenger" route="r_S_E" depart="36.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_25" type="passenger" route="r_W_E" depart="37.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_26" type="passenger" route="r_S_N" depart="39.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_27" type="passenger" route="r_E_N" depart="42.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_28" type="passenger" route="r_W_E" depart="44.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_29" type="passenger" route="r_W_E" depart="48.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_30" type="passenger" route="r_N_S" depart="50.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_31" type="passenger" route="r_N_W" depart="51.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_32" type="passenger" route="r_N_S" depart="55.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_33" type="passenger" route="r_W_E" depart="55.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_34" type="passenger" route="r_W_S" depart="58.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_35" type="passenger" route="r_W_E" depart="59.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_36" type="passenger" route="r_N_S" depart="60.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_37" type="passenger" route="r_E_W" depart="62.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_38" type="passenger" route="r_N_E" depart="63.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_39" type="passenger" route="r_E_W" depart="64.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_40" type="passenger" route="r_N_S" depart="66.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_41" type="passenger" route="r_N_E" depart="68.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_42" type="passenger" route="r_E_S" depart="70.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_43" type="passenger" route="r_E_N" depart="72.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_44" type="passenger" route="r_E_W" depart="74.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_45" type="passenger" route="r_N_W" depart="77.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_46" type="passenger" route="r_N_S" depart="78.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_47" type="passenger" route="r_S_E" depart="80.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_48" type="passenger" route="r_W_N" depart="81.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_49" type="passenger" route="r_S_N" depart="84.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_N_50" type="passenger" route="r_N_S" depart="86.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_51" type="passenger" route="r_W_E" depart="88.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_52" type="passenger" route="r_W_E" depart="90.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_E_53" type="passenger" route="r_E_W" depart="91.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_S_54" type="passenger" route="r_S_W" depart="93.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_55" type="passenger" route="r_W_E" depart="93.00" departLane="best" departSpeed="max"/>
+    <vehicle id="veh_W_56" type="passenger" route="r_W_E" depart="94.00" departLane="best" departSpeed="max"/>
+</routes>
