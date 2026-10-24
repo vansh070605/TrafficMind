@@ -1,7 +1,8 @@
 """FastAPI Backend Server for Modern Custom Traffic Simulation Dashboard.
 
 Provides REST and Server-Sent Events (SSE) streaming APIs for real-time
-microscopic vehicle tracking, controller orchestration, and benchmark comparisons.
+microscopic vehicle tracking, controller orchestration, benchmark comparisons,
+and interactive interventions (emergency vehicle injection, traffic surges, signal overrides).
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import queue
+import random
 import sys
 import threading
 import time
@@ -20,13 +22,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from configs.default_config import DEFAULT_SIM_CONFIG, SimulationConfig
+from configs.default_config import DEFAULT_SIM_CONFIG
 from controllers.adaptive import AdaptiveController
 from controllers.fixed_time import FixedTimeController
 from controllers.rl_controller import RLTrafficController
@@ -38,7 +40,7 @@ from simulation.sumo_utils import close_traci_safely, get_sumo_binary, setup_sum
 setup_sumo_environment()
 import traci
 
-app = FastAPI(title="Traffic Chaos Simulator API", version="2.0.0")
+app = FastAPI(title="TrafficMind Intelligent Intersection API", version="2.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,14 +60,37 @@ class SimulationManager:
         self.total_duration = 0
         self.controller_name = "Fixed-Time"
         self.scenario_name = "normal"
-        self.event_queue: queue.Queue = queue.Queue(maxsize=100)
+        self.event_queue: queue.Queue = queue.Queue(maxsize=150)
         self.lock = threading.Lock()
         self.latest_summary: Optional[Dict[str, Any]] = None
         self.worker_thread: Optional[threading.Thread] = None
 
+        # Interactive live interventions
+        self.pending_injections: List[Dict[str, Any]] = []
+        self.manual_override_phase: Optional[int] = None
+        self.manual_override_ticks: int = 0
+        self.speed_factor: float = 1.0
+
     def stop(self):
         with self.lock:
             self.stop_requested = True
+
+    def inject_vehicle(self, veh_type: str, origin: str, route_id: Optional[str] = None):
+        with self.lock:
+            self.pending_injections.append({
+                "type": veh_type,  # 'emergency' or 'passenger'
+                "origin": origin,  # 'N', 'S', 'E', 'W'
+                "route_id": route_id,
+            })
+
+    def set_override(self, phase: int, duration_ticks: int = 15):
+        with self.lock:
+            self.manual_override_phase = phase
+            self.manual_override_ticks = duration_ticks
+
+    def set_speed(self, speed: float):
+        with self.lock:
+            self.speed_factor = max(0.0, min(5.0, speed))
 
 
 sim_manager = SimulationManager()
@@ -86,6 +111,20 @@ class BenchmarkRequest(BaseModel):
     seed: int = 42
 
 
+class EmergencyInjectRequest(BaseModel):
+    origin: str = "N"  # 'N', 'S', 'E', 'W'
+    veh_type: str = "emergency"  # 'emergency' or 'passenger'
+
+
+class ManualOverrideRequest(BaseModel):
+    phase: int  # 0: NS Green, 2: EW Green
+    duration: int = 15  # seconds to lock phase
+
+
+class SpeedChangeRequest(BaseModel):
+    speed: float = 1.0
+
+
 @app.get("/api/status")
 def get_status():
     model_path = PROJECT_ROOT / "outputs" / "models" / "ppo_traffic_final.zip"
@@ -98,6 +137,8 @@ def get_status():
         "rl_model_available": model_path.exists(),
         "available_scenarios": list(SCENARIOS.keys()),
         "latest_summary": sim_manager.latest_summary,
+        "manual_override_active": sim_manager.manual_override_phase is not None,
+        "manual_override_phase": sim_manager.manual_override_phase,
     }
 
 
@@ -115,6 +156,28 @@ def get_scenarios():
     }
 
 
+@app.post("/api/intervention/inject-emergency")
+def inject_emergency_vehicle(req: EmergencyInjectRequest):
+    if not sim_manager.is_running:
+        raise HTTPException(status_code=400, detail="Simulation must be running to inject vehicles.")
+    sim_manager.inject_vehicle(veh_type=req.veh_type, origin=req.origin.upper())
+    return {"message": f"Queued {req.veh_type} vehicle injection from origin {req.origin.upper()}"}
+
+
+@app.post("/api/intervention/override-signal")
+def override_signal_phase(req: ManualOverrideRequest):
+    if not sim_manager.is_running:
+        raise HTTPException(status_code=400, detail="Simulation must be running to override signal.")
+    sim_manager.set_override(phase=req.phase, duration_ticks=req.duration)
+    return {"message": f"Overriding signal to phase {req.phase} for {req.duration}s"}
+
+
+@app.post("/api/intervention/speed")
+def update_playback_speed(req: SpeedChangeRequest):
+    sim_manager.set_speed(req.speed)
+    return {"message": f"Playback speed updated to {req.speed}x"}
+
+
 def _simulation_worker(req: StartSimRequest):
     sim_manager.is_running = True
     sim_manager.stop_requested = False
@@ -122,6 +185,11 @@ def _simulation_worker(req: StartSimRequest):
     sim_manager.total_duration = req.duration
     sim_manager.controller_name = req.controller
     sim_manager.scenario_name = req.scenario
+    sim_manager.speed_factor = req.speed_factor
+    sim_manager.manual_override_phase = None
+    sim_manager.manual_override_ticks = 0
+    with sim_manager.lock:
+        sim_manager.pending_injections.clear()
 
     config = DEFAULT_SIM_CONFIG
     close_traci_safely()
@@ -149,7 +217,7 @@ def _simulation_worker(req: StartSimRequest):
         if model_p.exists():
             controller = RLTrafficController(model_path=model_p)
         else:
-            controller = AdaptiveController()  # fallback
+            controller = AdaptiveController()
 
     sumo_bin = get_sumo_binary(gui=req.launch_gui)
     sumo_cmd = [
@@ -171,18 +239,63 @@ def _simulation_worker(req: StartSimRequest):
     if controller:
         controller.reset()
 
+    emergency_counter = 0
+
     try:
         traci.start(sumo_cmd)
         tls_id = config.tls_id
 
+        # Register custom vehicle types if available
+        try:
+            traci.vehicletype.copy("passenger", "emergency_vtype")
+            traci.vehicletype.setColor("emergency_vtype", (255, 30, 80, 255))
+            traci.vehicletype.setMaxSpeed("emergency_vtype", 22.0)
+            traci.vehicletype.setAccel("emergency_vtype", 4.0)
+        except Exception:
+            pass
+
         current_phase = traci.trafficlight.getPhase(tls_id)
         phase_duration = 0
+
+        # Predefined routes per arm for dynamic vehicle spawning
+        arm_routes = {
+            "N": "r_N_S",
+            "S": "r_S_N",
+            "E": "r_E_W",
+            "W": "r_W_E",
+        }
 
         for step in range(req.duration):
             if sim_manager.stop_requested:
                 break
 
             sim_manager.current_step = step
+
+            # Process any queued vehicle injections (e.g., Emergency Ambulance or Traffic Burst)
+            with sim_manager.lock:
+                injections = list(sim_manager.pending_injections)
+                sim_manager.pending_injections.clear()
+
+            for inj in injections:
+                emergency_counter += 1
+                origin = inj.get("origin", "N")
+                veh_type = inj.get("type", "emergency")
+                route_id = inj.get("route_id") or arm_routes.get(origin, "r_N_S")
+                vid = f"{'EMERGENCY' if veh_type == 'emergency' else 'SURGE'}_{origin}_{step}_{emergency_counter}"
+                vtype_name = "emergency_vtype" if veh_type == "emergency" else "passenger"
+                try:
+                    traci.vehicle.add(
+                        vehID=vid,
+                        routeID=route_id,
+                        typeID=vtype_name,
+                        depart=f"{step}",
+                        departLane="best",
+                        departSpeed="max",
+                    )
+                    if veh_type == "emergency":
+                        traci.vehicle.setColor(vid, (255, 30, 80, 255))
+                except Exception as e:
+                    print(f"Vehicle injection error: {e}")
 
             # Traffic State Extraction
             queues_by_arm: Dict[str, int] = {"N": 0, "S": 0, "E": 0, "W": 0}
@@ -221,22 +334,26 @@ def _simulation_worker(req: StartSimRequest):
                 "active_vehicle_ids": list(active_vids),
             }
 
-            # Controller step
-            if controller:
-                desired_phase = controller.step(current_time=step, state=state)
-                if desired_phase != current_phase:
-                    traci.trafficlight.setPhase(tls_id, desired_phase)
-                    current_phase = desired_phase
-                    phase_duration = 0
+            # Phase Decision (Manual Override vs AI Controller)
+            desired_phase = current_phase
+            with sim_manager.lock:
+                if sim_manager.manual_override_ticks > 0 and sim_manager.manual_override_phase is not None:
+                    desired_phase = sim_manager.manual_override_phase
+                    sim_manager.manual_override_ticks -= 1
+                    if sim_manager.manual_override_ticks <= 0:
+                        sim_manager.manual_override_phase = None
                 else:
-                    phase_duration += 1
+                    if controller:
+                        desired_phase = controller.step(current_time=step, state=state)
+                    else:
+                        desired_phase = traci.trafficlight.getPhase(tls_id)
+
+            if desired_phase != current_phase:
+                traci.trafficlight.setPhase(tls_id, desired_phase)
+                current_phase = desired_phase
+                phase_duration = 0
             else:
-                new_phase = traci.trafficlight.getPhase(tls_id)
-                if new_phase != current_phase:
-                    current_phase = new_phase
-                    phase_duration = 0
-                else:
-                    phase_duration += 1
+                phase_duration += 1
 
             # Advance simulation 1 step
             traci.simulationStep()
@@ -256,9 +373,9 @@ def _simulation_worker(req: StartSimRequest):
                 traci_client=traci,
             )
 
-            # Microscopic vehicle positions for live radar canvas
+            # Microscopic vehicle positions for live radar canvas / 3D viewport
             vehicles_frame: List[Dict[str, Any]] = []
-            for vid in active_vids[:80]:  # Cap for network performance
+            for vid in active_vids[:120]:
                 try:
                     pos = traci.vehicle.getPosition(vid)
                     angle = traci.vehicle.getAngle(vid)
@@ -266,14 +383,16 @@ def _simulation_worker(req: StartSimRequest):
                     waiting = traci.vehicle.getAccumulatedWaitingTime(vid)
                     edge = traci.vehicle.getRoadID(vid)
                     origin = edge.split("_")[0] if "_" in edge else "N"
+                    is_emergency = "EMERGENCY" in vid or vid.startswith("e_")
                     vehicles_frame.append({
                         "id": vid,
-                        "x": round(pos[0], 1),
-                        "y": round(pos[1], 1),
+                        "x": round(pos[0], 2),
+                        "y": round(pos[1], 2),
                         "angle": round(angle, 1),
-                        "speed": round(speed, 1),
+                        "speed": round(speed, 2),
                         "wait": round(waiting, 1),
                         "origin": origin,
+                        "isEmergency": is_emergency,
                     })
                 except Exception:
                     pass
@@ -294,6 +413,9 @@ def _simulation_worker(req: StartSimRequest):
                 "total_active": len(active_vids),
                 "max_wait": round(max_wait, 1),
                 "vehicles": vehicles_frame,
+                "manual_override_active": sim_manager.manual_override_phase is not None,
+                "manual_override_phase": sim_manager.manual_override_phase,
+                "manual_override_remaining": sim_manager.manual_override_ticks,
             }
 
             # Put in queue non-blocking (drop oldest if full)
@@ -305,8 +427,9 @@ def _simulation_worker(req: StartSimRequest):
             sim_manager.event_queue.put(frame)
 
             # Throttle playback
-            if req.speed_factor > 0:
-                time.sleep(0.05 * req.speed_factor)
+            sp = sim_manager.speed_factor
+            if sp > 0:
+                time.sleep(0.04 * sp)
 
     finally:
         collector.finish()
@@ -363,8 +486,8 @@ async def stream_simulation():
                 if not sim_manager.is_running:
                     yield f"data: {json.dumps({'type': 'idle'})}\n\n"
                     break
-                await asyncio.sleep(0.04)
-            await asyncio.sleep(0.02)
+                await asyncio.sleep(0.03)
+            await asyncio.sleep(0.015)
 
     return StreamingResponse(
         event_generator(),
@@ -390,13 +513,19 @@ def run_benchmark_endpoint(req: BenchmarkRequest):
     return {"results": records}
 
 
-# Mount modern static assets
-static_dir = Path(__file__).resolve().parent / "static"
-static_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+# Mount modern web static assets
+web_dist_dir = PROJECT_ROOT / "web" / "dist"
+legacy_static_dir = Path(__file__).resolve().parent / "static"
+
+if web_dist_dir.exists():
+    app.mount("/", StaticFiles(directory=str(web_dist_dir), html=True), name="static")
+else:
+    legacy_static_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/", StaticFiles(directory=str(legacy_static_dir), html=True), name="static")
+
 
 
 if __name__ == "__main__":
     import uvicorn
-    print("Launching Traffic Chaos Simulator Web Platform at http://localhost:8000")
+    print("Launching TrafficMind Intelligent Intersection API at http://localhost:8000")
     uvicorn.run("dashboard.server:app", host="0.0.0.0", port=8000, reload=False)

@@ -195,24 +195,33 @@ This automatically produces:
 
 ---
 
-## Modern Custom Web Dashboard (FastAPI + HTML5 Canvas Radar)
+## Next-Gen Web Platform (React 19 + Three.js 3D WebGL + FastAPI + SSE)
 
-In addition to the baseline Streamlit app, the platform features a **state-of-the-art custom cyber-urban web dashboard** built with **FastAPI**, **HTML5 Canvas**, and **Chart.js**:
+TrafficMind features a custom full-stack cyber-urban command platform combining:
+- **WebGL 3D Interactive Ortho-Isometric Radar:** Built with Three.js, rendering realistic 3D passenger cars, headlights, emergency flashing beacons, animated signal gantry orbs, asphalt lane dashes, and smooth coordinate interpolation directly from SUMO!
+- **2D Vector Sweep Radar:** Alternative high-framerate HTML5 Canvas radar with sweep scanners, vehicle heading vectors, and stop-line signal indicators.
+- **Live On-the-Fly Urban Interventions:**
+  - **Ambulance / Emergency Vehicle Injection:** One-click dispatch of priority emergency vehicles with flashing sirens from any arm (North, South, East, West).
+  - **Manual Signal Phase Overrides:** Real-time force NS Green or force EW Green holding corridors open for 15s.
+- **Mission Control Deck:** Dynamic controller switching (Adaptive, Deep RL PPO, Fixed-Time), scenario selector pills (`normal`, `rush_hour`, `unbalanced`, `surge`, `unseen_evaluation`), duration sliders, and live playback speed multiplier (0.2x – 2.5x).
+- **Streaming Telemetry & Fairness Matrix:** Real-time queue progression, average delay, max vehicle starvation timer, and 4-arm directional approach load bars.
+- **Head-to-Head Benchmark Arena:** In-browser multi-scenario shootout comparing Fixed-Time, Adaptive, and PPO models.
+
+### Launching the Web Platform:
 
 ```powershell
-# Launch the modern custom dashboard server
+# 1. Start the FastAPI backend server (serves the pre-compiled production build)
 python dashboard/server.py
 ```
 Open your browser to: **`http://localhost:8000`**
 
-### Highlights:
-- **Live 2D Micro-Radar Canvas:** Real-time microscopic visualization of the 4-way intersection rendering the exact coordinates, headings, and braking states of vehicles directly from SUMO!
-- **Glowing LED Signal HUD:** Real-time traffic light heads showing active signal phases (NS Green, NS Yellow, EW Green, EW Yellow).
-- **Mission Control Deck:** Dynamic controller switching (Adaptive, Deep RL PPO, Fixed-Time), scenario selector pills (`normal`, `rush_hour`, `unbalanced`, `surge`, `unseen_evaluation`), duration/seed sliders, and speed controls.
-- **Real-Time Telemetry & Charts:** Live streaming queue progression, average delay, and directional approach matrices (North, South, East, West).
-- **3-Way Benchmark Arena:** One-click automated comparison displaying side-by-side performance cards and metrics.
+#### For Frontend Development (Vite Hot-Reload):
+```powershell
+cd web
+npm run dev
+# Vite runs at http://localhost:3000 with automatic proxying to http://localhost:8000/api
+```
 
-*(Note: The original Streamlit dashboard is also retained and can be run via `streamlit run dashboard/app.py` if desired).*
 
 ---
 

@@ -21,6 +21,11 @@ outputs/temp/
 # Streamlit
 .streamlit/
 
+# Web
+node_modules/
+web/node_modules/
+web/dist/
+
 # OS Specific
 .DS_Store
 Thumbs.db
