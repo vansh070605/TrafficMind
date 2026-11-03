@@ -1,6 +1,8 @@
 # Traffic Chaos Simulator — Adaptive AI Traffic Control 🚦
 
-An end-to-end microscopic traffic simulation and reinforcement learning benchmark suite built on **Eclipse SUMO**, **TraCI**, **Farama Gymnasium**, and **Stable-Baselines3 (PPO)**.
+> **Project status: archived.** This project is no longer actively developed. The code is kept as a reference and portfolio piece. Read [Known Issues](#known-issues) before relying on any benchmark numbers below.
+
+An end-to-end microscopic traffic simulation and reinforcement learning benchmark suite built on **Eclipse SUMO**, **TraCI**, **Farama Gymnasium**, and **Stable-Baselines3 (PPO)**, with a FastAPI + React/Three.js live dashboard.
 
 This project investigates and experimentally compares three traffic signal control paradigms:
 1. **Fixed-Time Control:** Deterministic cyclic timing plans with standardized clearance intervals.
@@ -12,7 +14,7 @@ This project investigates and experimentally compares three traffic signal contr
 ## Architecture Overview
 
 ```
-traffic-chaos-simulator/
+TrafficMind/
 ├── simulation/
 │   ├── network/                # Compiled .net.xml, sumocfg, and viewsettings
 │   ├── scenarios/              # Reproducible route files (.rou.xml)
@@ -35,7 +37,9 @@ traffic-chaos-simulator/
 │   ├── benchmarks.py           # Multi-scenario, multi-seed benchmark battery
 │   └── plots.py                # Comparative bar charts, fairness, & queue plots
 ├── dashboard/
-│   └── app.py                  # Streamlit interactive control center
+│   ├── app.py                  # Legacy Streamlit control center
+│   └── server.py               # FastAPI backend (REST + SSE telemetry stream)
+├── web/                        # React 19 + Vite + Three.js dashboard (see web/README.md)
 ├── configs/
 │   └── default_config.py       # Centralized simulation, controller, & RL settings
 ├── tests/
@@ -73,8 +77,8 @@ flowchart TD
     L --> A
 ```
 
-- **Safety Invariant:** Direct transitions between conflicting green phases are strictly prohibited. Every phase switch enforces a mandatory `yellow_duration` (default: 3s) clearance interval before green is granted to cross-traffic.
-- **Anti-Starvation Safeguard:** Adaptive and RL controllers enforce a maximum wait-time ceiling (default: 40s) to guarantee fairness on unbalanced approaches.
+- **Safety Invariant (intended):** Direct transitions between conflicting green phases are prohibited. Every controller-initiated phase switch goes through a `yellow_duration` (default: 3s) clearance interval. The dashboard's manual override does not yet respect this; see [Known Issues](#known-issues).
+- **Anti-Starvation Safeguard:** The Adaptive controller forces a switch when the maximum vehicle wait reaches 40s. The RL controller has no such ceiling; fairness is only encouraged through the reward's `w_fairness` term.
 
 ---
 
@@ -120,6 +124,14 @@ source .venv/bin/activate
 # Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+### 4. Web Dashboard Setup (optional)
+Requires Node.js 20+. `web/dist` is not committed, so build it once before launching the server:
+```powershell
+cd web
+npm install
+npm run build
 ```
 
 ---
@@ -203,16 +215,29 @@ TrafficMind features a custom full-stack cyber-urban command platform combining:
 - **Live On-the-Fly Urban Interventions:**
   - **Ambulance / Emergency Vehicle Injection:** One-click dispatch of priority emergency vehicles with flashing sirens from any arm (North, South, East, West).
   - **Manual Signal Phase Overrides:** Real-time force NS Green or force EW Green holding corridors open for 15s.
-- **Mission Control Deck:** Dynamic controller switching (Adaptive, Deep RL PPO, Fixed-Time), scenario selector pills (`normal`, `rush_hour`, `unbalanced`, `surge`, `unseen_evaluation`), duration sliders, and live playback speed multiplier (0.2x – 2.5x).
+- **Mission Control Deck:** Dynamic controller switching (Adaptive, Deep RL PPO, Fixed-Time), scenario selector pills (`normal`, `rush_hour`, `unbalanced`, `surge`, `unseen_evaluation`), duration sliders, and a playback speed slider (0.2x – 2.5x; note the server currently treats this as a delay multiplier, so higher values play slower).
 - **Streaming Telemetry & Fairness Matrix:** Real-time queue progression, average delay, max vehicle starvation timer, and 4-arm directional approach load bars.
 - **Head-to-Head Benchmark Arena:** In-browser multi-scenario shootout comparing Fixed-Time, Adaptive, and PPO models.
 
 ### Launching the Web Platform:
 
 ```powershell
-# 1. Start the FastAPI backend server (serves the pre-compiled production build)
+# Start the FastAPI backend server (serves web/dist; build it first, see Web Dashboard Setup)
 python dashboard/server.py
 ```
+
+#### API Endpoints
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| GET | `/api/status` | Run state, active controller/scenario, RL model availability, last summary |
+| GET | `/api/scenarios` | Scenario definitions and arrival rates |
+| POST | `/api/simulation/start` | Start a run (`controller`, `scenario`, `duration`, `seed`, `speed_factor`, `launch_gui`) |
+| POST | `/api/simulation/stop` | Stop the active run |
+| GET | `/api/simulation/stream` | SSE stream of `telemetry` frames, then one `completed` frame |
+| POST | `/api/intervention/inject-emergency` | Spawn an emergency or passenger vehicle from `N`/`S`/`E`/`W` |
+| POST | `/api/intervention/override-signal` | Hold phase `0` (NS green) or `2` (EW green) for `duration` seconds |
+| POST | `/api/intervention/speed` | Change playback delay multiplier |
+| POST | `/api/benchmark` | Synchronous Fixed vs Adaptive vs RL comparison |
 Open your browser to: **`http://localhost:8000`**
 
 #### For Frontend Development (Vite Hot-Reload):
@@ -243,6 +268,8 @@ All 12 automated unit and integration tests cover:
 
 ## Experimental Benchmark Results
 
+> **Caveat:** These numbers were produced before the phase auto-advance and RL controller import bugs listed under [Known Issues](#known-issues) were found. Treat them as unverified until the benchmarks are re-run after those fixes.
+
 *Evaluated on 4-way intersection (2 lanes per approach, speed limit 50 km/h, multiple seeds):*
 
 | Scenario | Controller | Avg Wait (s) | Avg Queue (veh) | Throughput (veh/min) | Max Wait (s) |
@@ -264,7 +291,21 @@ All 12 automated unit and integration tests cover:
 
 ---
 
+## Known Issues
+
+Found during a final code review and left unfixed when the project was archived:
+
+1. **RL controller crashes at runtime.** `controllers/rl_controller.py` is missing imports for `numpy as np`, `Path`, and `Any/Dict/Optional/Union`. Loading a model or calling `step()` raises `NameError`, which breaks the `rl` option in the runner, dashboard, and benchmarks. The test suite does not cover this class.
+2. **SUMO auto-advances phases behind the controllers.** The generated `tlLogic` uses 42s greens, and phases are only set via `setPhase` when they change. SUMO therefore switches on its own after 42s, so `max_green=60` is never reached and the Adaptive controller's state can drift from the real signal. `SumoTrafficEnv` has the same problem, so a "hold green" action can silently become a switch during RL training. Fix: call `traci.trafficlight.setPhaseDuration(tls_id, 1e6)` after each `setPhase`, then retrain and re-benchmark.
+3. **Manual override skips yellow.** `/api/intervention/override-signal` jumps directly between conflicting greens and does not update the controller's internal phase.
+4. **RL safeguards are partial.** `RLConfig.min_green_before_switch` and `w_stop` are defined but unused, and the RL controller's decision timing differs slightly from the training environment's.
+5. **Server concurrency.** `/api/benchmark` runs synchronously on the same global TraCI connection as live runs and will kill an active simulation. All SSE clients share one queue, so multiple browser tabs each receive only part of the frames.
+6. **Performance.** Each step makes several per-vehicle TraCI calls (600+ round trips with 120 vehicles). TraCI subscriptions would remove most of this overhead.
+7. **Throughput on early stop.** `throughput_per_minute` divides by the requested duration, not the steps actually simulated.
+
 ## Known Limitations and Future Work
 - **Single-Junction Scope:** The current core simulation focuses on an isolated 4-way intersection. Extending to coordinated multi-intersection arterial green waves is a natural next step.
 - **Pedestrian and Multi-Modal Traffic:** The current demand models passenger vehicles; future iterations can incorporate transit priority (buses/trams) and pedestrian crossing phases.
 - **Observation Noise:** Real-world loop detectors and cameras suffer from detection errors and occlusion, which can be modeled with observation noise in the environment.
+- **Stronger Baseline:** Fixed-time is an easy baseline. A max-pressure controller would be a more meaningful comparison for the RL agent.
+- **Real Road Networks:** SUMO's `osmWebWizard.py` can import OpenStreetMap areas to test generalization beyond the synthetic intersection.
