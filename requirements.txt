@@ -8,3 +8,5 @@ streamlit>=1.30.0
 pytest>=8.0.0
 torch>=2.0.0
 stable-baselines3>=2.2.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
